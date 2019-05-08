@@ -13,11 +13,16 @@ type Tree
     | Leaf Element
 
 
+type Direction
+    = Left
+    | Right
+
+
 type alias Element =
     ( Char, Int )
 
 
-decompression : Tree -> List String -> String
+decompression : Tree -> List (List Direction) -> String
 decompression tree textInCodes =
     let
         codesFromTree =
@@ -35,27 +40,24 @@ decompression tree textInCodes =
         |> String.concat
 
 
-searchCharByCode : Tree -> String -> String
+searchCharByCode : Tree -> List Direction -> String
 searchCharByCode tree code =
     case tree of
         Empty ->
-            "Err: Empty Tree"
+            ""
 
         Leaf element ->
             Tuple.first element |> String.fromChar
 
         Node first second ->
-            if String.startsWith "0" code then
-                searchCharByCode first (String.dropLeft 1 code)
-
-            else if String.startsWith "1" code then
-                searchCharByCode second (String.dropLeft 1 code)
+            if List.head code == Just Left then
+                searchCharByCode first (List.tail code |> Maybe.Extra.toList |> List.concat)
 
             else
-                "Err: It's not 0 or 1"
+                searchCharByCode second (List.tail code |> Maybe.Extra.toList |> List.concat)
 
 
-compression : String -> ( Tree, List String )
+compression : String -> ( Tree, List (List Direction) )
 compression text =
     let
         tree =
@@ -69,19 +71,19 @@ compression text =
     )
 
 
-getCodeByChar : List ( Char, String ) -> Char -> Maybe String
+getCodeByChar : List ( Char, List Direction ) -> Char -> Maybe (List Direction)
 getCodeByChar codes searchedChar =
     codes
         |> Dict.fromList
         |> Dict.get searchedChar
 
 
-codeOfLeafs : Tree -> List ( Char, String )
+codeOfLeafs : Tree -> List ( Char, List Direction )
 codeOfLeafs tree =
-    codeOfLeafsHelp tree "" []
+    codeOfLeafsHelp tree [] []
 
 
-codeOfLeafsHelp : Tree -> String -> List ( Char, String ) -> List ( Char, String )
+codeOfLeafsHelp : Tree -> List Direction -> List ( Char, List Direction ) -> List ( Char, List Direction )
 codeOfLeafsHelp tree currentCode listOfCodes =
     case tree of
         Empty ->
@@ -91,8 +93,12 @@ codeOfLeafsHelp tree currentCode listOfCodes =
             ( Tuple.first element, currentCode ) :: listOfCodes
 
         Node first second ->
-            [ codeOfLeafsHelp first (currentCode ++ "0") listOfCodes
-            , codeOfLeafsHelp second (currentCode ++ "1") listOfCodes
+            let
+                reversedlist =
+                    List.reverse currentCode
+            in
+            [ codeOfLeafsHelp first (Left :: reversedlist |> List.reverse) listOfCodes
+            , codeOfLeafsHelp second (Right :: reversedlist |> List.reverse) listOfCodes
             ]
                 |> List.concat
 
@@ -208,8 +214,8 @@ view model =
             , div [] [ viewTree thisTree ]
             ]
         , div []
-            [ h2 [] [ text "Dies ist der Text angegeben in den Schlüsseln der Bytes / After compression:" ]
-            , div [] (List.map (\code -> text (code ++ " ")) allCodes)
+            [ h2 [] [ text "Dies ist der Text angegeben in den Schlüsseln der Bits / After compression:" ]
+            , div [] (List.map (\code -> text (code ++ " ")) (List.map foo allCodes))
             ]
         , div []
             [ h2 [] [ text "Der Text nach der Wiederherstellung / After compression & decompression" ]
@@ -220,6 +226,21 @@ view model =
             , div [] [ text model ]
             ]
         ]
+
+
+foo : List Direction -> String
+foo code =
+    List.map
+        (\direction ->
+            case direction of
+                Left ->
+                    '0'
+
+                Right ->
+                    '1'
+        )
+        code
+        |> String.fromList
 
 
 viewTree : Tree -> Html Msg
