@@ -195,7 +195,7 @@ view model =
     div []
         [ input [ onInput NewInput ] []
         , div []
-            [ h2 [] [ text "So sieht der Baum aus:" ]
+            [ h2 [] [ text "Das beinhaltet der Baum:" ]
             , div [] [ viewTree tree ]
             ]
         , div []
