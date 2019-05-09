@@ -4,8 +4,8 @@
 
 The Huffman-Coding is a smart way for compression and decompression.
 Its used for lossless data compression.
-For compression the algorithm counts the frequencys of chars.
-The higher the frequency of a char in the string the shorter is the sequency of bits.
+For compression the algorithm counts the frequency of chars.
+The higher the frequency of a char in the string the shorter is the sequence of bits.
 
 ## About this project
 
