@@ -1,10 +1,16 @@
 module Main exposing (compress, decompress)
 
 import Browser
+import Bytes exposing (Bytes)
+import Bytes.Decode as Decode exposing (Decoder)
+import Bytes.Encode as Encode exposing (Encoder)
 import Dict exposing (Dict)
-import Html exposing (Html, div, h2, input, text)
-import Html.Events exposing (onInput)
+import File exposing (File)
+import File.Select as Select
+import Html exposing (Html, button, div, h2, input, text)
+import Html.Events exposing (onClick, onInput)
 import Maybe.Extra
+import Task
 
 
 type Tree
@@ -168,32 +174,26 @@ listCodeOfCharFromTree tree currentCode listOfCodes =
 
 
 main =
-    Browser.sandbox
+    Browser.element
         { init = init
         , view = view
         , update = update
+        , subscriptions = subscriptions
         }
-
-
-type alias Model =
-    String
-
-
-type Msg
-    = NewInput String
 
 
 view : Model -> Html Msg
 view model =
     let
         tree =
-            Tuple.first (compress model)
+            Tuple.first (compress model.stringFromFile)
 
         listOfCodes =
-            Tuple.second (compress model)
+            Tuple.second (compress model.stringFromFile)
     in
     div []
         [ input [ onInput NewInput ] []
+        , button [ onClick ZipRequested ] [ text "Test" ]
         , div []
             [ h2 [] [ text "Das beinhaltet der Baum:" ]
             , div [] [ viewTree tree ]
@@ -208,7 +208,21 @@ view model =
             ]
         , div []
             [ h2 [] [ text "Der original Text:" ]
-            , div [] [ text model ]
+            , div [] [ text model.stringFromFile ]
+            ]
+        , div []
+            [ h2 [] [ text "Download-File" ]
+            , div []
+                [ if String.isEmpty model.stringFromFile then
+                    text ""
+
+                  else
+                    let
+                        downloadFile =
+                            createDownloadFile model.stringFromFile model.stringFromCodeList
+                    in
+                    text (downloadFile |> Decode.decode (Decode.string (Bytes.width downloadFile)) |> Maybe.withDefault "")
+                ]
             ]
         ]
 
@@ -251,13 +265,60 @@ viewTreeHelp tree currentCode =
         ]
 
 
-update : Msg -> Model -> Model
-update msg _ =
+type alias Model =
+    { stringFromFile : String
+    , stringFromCodeList : String
+    , bytes : Maybe Bytes
+    }
+
+
+type Msg
+    = NewInput String
+    | FormInBytes Bytes
+    | ZipRequested
+    | ZipLoaded File
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
     case msg of
         NewInput newInput ->
-            newInput
+            ( { model | stringFromFile = newInput }, Cmd.none )
+
+        ZipRequested ->
+            ( model, Select.file [] ZipLoaded )
+
+        ZipLoaded file ->
+            ( model, Task.perform FormInBytes (File.toBytes file) )
+
+        FormInBytes bytes ->
+            ( let
+                stringFromFile =
+                    Decode.decode (Decode.string (Bytes.width bytes)) bytes |> Maybe.withDefault ""
+              in
+              { stringFromFile = stringFromFile
+              , stringFromCodeList = Tuple.second (compress stringFromFile) |> List.map stringFromCode |> String.join "-"
+              , bytes = Just bytes
+              }
+            , Cmd.none
+            )
 
 
-init : Model
-init =
-    ""
+createDownloadFile : String -> String -> Bytes
+createDownloadFile file codes =
+    Encode.encode (Encode.string (file ++ "At this place starts the codes from the tree" ++ codes))
+
+
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Sub.none
+
+
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { stringFromFile = ""
+      , stringFromCodeList = ""
+      , bytes = Nothing
+      }
+    , Cmd.none
+    )
