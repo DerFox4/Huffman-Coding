@@ -1,9 +1,10 @@
 module Main exposing (Code, Direction(..), Element, FileWithTree, Tree(..), compress, decompress)
 
+--import Bytes.Encode as Encode exposing (Encoder)
+
 import Browser
 import Bytes exposing (Bytes)
 import Bytes.Decode as Decode exposing (Decoder, Step(..))
-import Bytes.Encode as Encode exposing (Encoder)
 import Dict exposing (Dict)
 import File exposing (File)
 import File.Select as Select

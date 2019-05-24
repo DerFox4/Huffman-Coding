@@ -1,7 +1,5 @@
 module Example exposing (suite)
 
---import Fuzz exposing (Fuzzer, int, list, string)
-
 import Bytes
 import Bytes.Decode as Decode
 import Bytes.Encode as Encode
