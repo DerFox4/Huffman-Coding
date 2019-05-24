@@ -123,10 +123,14 @@ suite =
                 ]
             ]
         , describe "De & Encode Text"
-            [ test "bla" <|
+            [ test "short Codes" <|
                 \() ->
                     Decode.decode (decodeText decodeCode) (Encode.encode (encodeText 4 [ [ Left ], [ Right ], [ Left, Left ], [ Right, Right ] ]))
                         |> Expect.equal (Just [ [ Left ], [ Right ], [ Left, Left ], [ Right, Right ] ])
+            , test "long Codes" <|
+                \() ->
+                    Decode.decode (decodeText decodeCode) (Encode.encode (encodeText 3 [ [ Left, Left, Right, Right, Left, Left, Right, Left, Right ], [ Left, Right, Right, Right, Right, Left, Left, Right, Right ], [ Right, Right, Left, Right, Right, Left, Right, Right, Left ] ]))
+                        |> Expect.equal (Just [ [ Left, Left, Right, Right, Left, Left, Right, Left, Right ], [ Left, Right, Right, Right, Right, Left, Left, Right, Right ], [ Right, Right, Left, Right, Right, Left, Right, Right, Left ] ])
             ]
         , describe "File"
             [ test "kurz" <|
