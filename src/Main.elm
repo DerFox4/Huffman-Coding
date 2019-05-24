@@ -1,6 +1,5 @@
-module Main exposing (Code, Direction(..), Element, FileWithTree, Tree(..), compress, decodeCode, decodeElement, decodeFile, decodeText, decodeTree, decompress, encodeCode, encodeElement, encodeFile, encodeText, encodeTree)
+module Main exposing (Code, Direction(..), Element, FileWithTree, Tree(..), compress, decompress)
 
-import Bitwise
 import Browser
 import Bytes exposing (Bytes)
 import Bytes.Decode as Decode exposing (Decoder, Step(..))
@@ -37,6 +36,12 @@ type alias Code =
 type alias Element =
     { char : Char
     , numberOf : Int
+    }
+
+
+type alias FileWithTree =
+    { text : List Code
+    , tree : Tree
     }
 
 
@@ -100,20 +105,13 @@ compress text =
     ( codes, tree )
 
 
-createElementFromTuple : ( Char, Int ) -> Element
-createElementFromTuple ( char, numberOf ) =
-    { char = char
-    , numberOf = numberOf
-    }
-
-
 generateTree : String -> Tree
 generateTree text =
     let
         characterCounts =
             countChars text
                 |> Dict.toList
-                |> List.map createElementFromTuple
+                |> List.map (\( char, int ) -> Element char int)
     in
     List.map Leaf characterCounts
         |> mergeTrees
@@ -209,25 +207,6 @@ listCodeOfCharFromTree tree currentCode listOfCodes =
                 |> List.concat
 
 
-createOldFile : Maybe Bytes -> Maybe String
-createOldFile file =
-    case file of
-        Just bytes ->
-            bytes
-                |> Decode.decode (Decode.string (Bytes.width bytes))
-                |> Maybe.withDefault ""
-                |> String.split "!!!At this place starts the codes from the tree!!!"
-                |> List.head
-
-        Nothing ->
-            Nothing
-
-
-createDownloadBytes : String -> String -> Bytes
-createDownloadBytes file codes =
-    Encode.encode (Encode.string (file ++ "!!!At this place starts the codes from the tree!!!" ++ codes))
-
-
 main =
     Browser.element
         { init = init
@@ -293,10 +272,6 @@ view model =
                                         text ""
 
                                       else
-                                        let
-                                            downloadFileInBytes =
-                                                createDownloadBytes model.stringFromFile (String.join "-" (List.map stringFromCode model.codeList))
-                                        in
                                         button [] [ text "Hier soll der Download der komprimierten Datei gestartet werden können." ]
                                     ]
                                 ]
@@ -315,17 +290,7 @@ view model =
                     , div [] [ text "Falls Sie eine Datei dekomprimieren wollen, dann klicken Sie auf den Button und wählen eine Datei aus." ]
                     , div [] [ button [ onClick FileRequested ] [ text "Bitte wählen Sie eine Datei zur Dekomprimierung aus" ] ]
                     , div []
-                        [ let
-                            oldVersion =
-                                createOldFile model.bytes
-                          in
-                          case oldVersion of
-                            Just _ ->
-                                div [] [ button [] [ text "Hier soll der Download der wiederhergestellten Datei möglich sein." ] ]
-
-                            Nothing ->
-                                div [] []
-                        ]
+                        [ text "Hier soll die alte Datei stehen" ]
                     ]
 
             Nothing ->
@@ -415,219 +380,3 @@ init _ =
       }
     , Cmd.none
     )
-
-
-decodeCode : Decoder Code
-decodeCode =
-    Decode.unsignedInt16 Bytes.BE
-        |> Decode.andThen
-            (\toDecodeValue ->
-                let
-                    conditions x =
-                        (x > 4095)
-                            && (x < 53248)
-                            && ((x == 4096)
-                                    || (x == 6144)
-                                    || (x > 8191 && x < 12288 && modBy 1024 x == 0)
-                                    || (x > 12287 && x < 16384 && modBy 512 x == 0)
-                                    || (x > 16383 && x < 20480 && modBy 256 x == 0)
-                                    || (x > 20489 && x < 24576 && modBy 128 x == 0)
-                                    || (x > 24575 && x < 28672 && modBy 64 x == 0)
-                                    || (x > 28671 && x < 32768 && modBy 32 x == 0)
-                                    || (x > 32767 && x < 36864 && modBy 16 x == 0)
-                                    || (x > 36863 && x < 40960 && modBy 8 x == 0)
-                                    || (x > 40959 && x < 45056 && modBy 4 x == 0)
-                                    || (x > 45055 && x < 49152 && modBy 2 x == 0)
-                                    || (x > 49151 && x < 53248)
-                               )
-                in
-                if conditions toDecodeValue then
-                    toDecodeValue
-                        |> calculateCodeFromContentValue
-                        |> (\code ->
-                                if List.isEmpty code then
-                                    [ Left ]
-
-                                else
-                                    code
-                           )
-                        |> Decode.succeed
-
-                else
-                    Decode.fail
-            )
-
-
-calculateCodeFromContentValue : Int -> Code
-calculateCodeFromContentValue toDecodeValue =
-    let
-        content =
-            modBy 4096 toDecodeValue
-
-        prefix =
-            toDecodeValue // 4096
-    in
-    calculateCodeFromContentValueHelp content 11 []
-        |> List.take prefix
-
-
-calculateCodeFromContentValueHelp : Int -> Int -> Code -> Code
-calculateCodeFromContentValueHelp content rep code =
-    if content == 0 then
-        if rep < 0 then
-            List.reverse code
-
-        else
-            List.reverse code ++ List.repeat (rep + 1) Left
-
-    else if content - (2 ^ rep) >= 0 then
-        calculateCodeFromContentValueHelp (content - (2 ^ rep)) (rep - 1) (Right :: code)
-
-    else
-        calculateCodeFromContentValueHelp content (rep - 1) (Left :: code)
-
-
-encodeCode : Code -> Encoder
-encodeCode code =
-    code
-        |> calculateCodeValueContent
-        |> calculateByteDescriptionInInt (List.length code)
-        |> Encode.unsignedInt16 Bytes.BE
-
-
-calculateByteDescriptionInInt : Int -> Int -> Int
-calculateByteDescriptionInInt prefix content =
-    Bitwise.shiftLeftBy 12 prefix + content
-
-
-calculateCodeValueContent : Code -> Int
-calculateCodeValueContent code =
-    List.foldl
-        (\direction acc ->
-            case direction of
-                Left ->
-                    acc * 2
-
-                Right ->
-                    acc * 2 + 1
-        )
-        0
-        code
-        |> Bitwise.shiftLeftBy (12 - List.length code)
-
-
-encodeTree : Tree -> Maybe Encoder
-encodeTree tree =
-    case tree of
-        Empty ->
-            Nothing
-
-        Node first second ->
-            Maybe.map2 (\x y -> Encode.sequence [ Encode.unsignedInt8 0, x, y ]) (encodeTree first) (encodeTree second)
-
-        Leaf element ->
-            Just (Encode.sequence [ Encode.unsignedInt8 1, encodeElement element ])
-
-
-encodeElement : Element -> Encoder
-encodeElement element =
-    let
-        charAsString =
-            String.fromChar element.char
-    in
-    Encode.sequence
-        [ Encode.unsignedInt8 (Encode.getStringWidth charAsString)
-        , Encode.string charAsString
-        , Encode.unsignedInt16 Bytes.BE element.numberOf
-        ]
-
-
-decodeElement : Decoder Element
-decodeElement =
-    Decode.map2 Element
-        (Decode.unsignedInt8 |> Decode.andThen decodeChar)
-        (Decode.unsignedInt16 Bytes.BE)
-
-
-decodeChar : Int -> Decoder Char
-decodeChar width =
-    Decode.string width |> Decode.andThen decodeStringToChar
-
-
-decodeStringToChar : String -> Decoder Char
-decodeStringToChar string =
-    case changeOneCharStringIntoChar string of
-        Nothing ->
-            Decode.fail
-
-        Just char ->
-            Decode.succeed char
-
-
-changeOneCharStringIntoChar : String -> Maybe Char
-changeOneCharStringIntoChar string =
-    if String.length string /= 1 then
-        Nothing
-
-    else
-        String.toList string |> List.head
-
-
-decodeTree : Decoder Tree
-decodeTree =
-    Decode.unsignedInt8
-        |> Decode.andThen
-            (\int ->
-                if int == 0 then
-                    Decode.map2 Node decodeTree decodeTree
-
-                else if int == 1 then
-                    Decode.map Leaf decodeElement
-
-                else
-                    Decode.fail
-            )
-
-
-encodeText : Int -> List Code -> Encoder
-encodeText length text =
-    Encode.sequence
-        (Encode.unsignedInt32 Bytes.BE length :: List.map encodeCode text)
-
-
-decodeText : Decoder Code -> Decoder (List Code)
-decodeText decoder =
-    Decode.unsignedInt32 Bytes.BE
-        |> Decode.andThen (\len -> Decode.loop ( len, [] ) (current decoder))
-
-
-current : Decoder Code -> ( Int, List Code ) -> Decoder (Step ( Int, List Code ) (List Code))
-current decoder ( step, list ) =
-    if step <= 0 then
-        Decode.succeed (Done list)
-
-    else
-        Decode.map (\code -> Loop ( step - 1, list ++ List.singleton code )) decoder
-
-
-type alias FileWithTree =
-    { text : List Code
-    , tree : Tree
-    }
-
-
-encodeFile : FileWithTree -> Maybe Encoder
-encodeFile file =
-    case encodeTree file.tree of
-        Nothing ->
-            Nothing
-
-        Just thisTree ->
-            Just (Encode.sequence [ encodeText (List.length file.text) file.text, thisTree ])
-
-
-decodeFile : Decoder FileWithTree
-decodeFile =
-    Decode.map2 FileWithTree
-        (decodeText decodeCode)
-        decodeTree

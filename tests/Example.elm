@@ -1,11 +1,14 @@
 module Example exposing (suite)
 
+--import Fuzz exposing (Fuzzer, int, list, string)
+
 import Bytes
 import Bytes.Decode as Decode
 import Bytes.Encode as Encode
+import Decoder exposing (decodeCode, decodeElement, decodeFile, decodeText, decodeTree)
+import Encoder exposing (encodeCode, encodeElement, encodeFile, encodeText, encodeTree)
 import Expect exposing (Expectation)
-import Fuzz exposing (Fuzzer, int, list, string)
-import Main exposing (Code, Direction(..), Element, FileWithTree, Tree(..), decodeCode, decodeElement, decodeFile, decodeText, decodeTree, encodeCode, encodeElement, encodeFile, encodeText, encodeTree)
+import Main exposing (Code, Direction(..), Element, FileWithTree, Tree(..))
 import Test exposing (..)
 
 
