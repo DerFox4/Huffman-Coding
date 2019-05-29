@@ -12,7 +12,8 @@ The higher the frequency of a char in the string the shorter is the sequence of 
 ### How to start this project
 
 If you want to use this project you first have to clone this repository.
-After cloning this repository you could start the Huffman-Codding with the command `elm reactor` in your terminal.
+Afterwards you can start the Huffman-Codding if you write the command `elm reactor` in your terminal.
+Last you have to open a browser and visit `localhost:8000`.
 
 ### Description
 
