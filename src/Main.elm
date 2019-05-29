@@ -1,49 +1,25 @@
-module Main exposing (Code, Direction(..), Element, FileWithTree, Tree(..), compress, decompress)
-
---import Bytes.Encode as Encode exposing (Encoder)
+module Main exposing (compress, decompress)
 
 import Browser
 import Bytes exposing (Bytes)
 import Bytes.Decode as Decode exposing (Decoder, Step(..))
+import Bytes.Encode as Encode
+import Decoder
 import Dict exposing (Dict)
+import Encoder
 import File exposing (File)
+import File.Download as Download
 import File.Select as Select
-import Html exposing (Html, button, div, h1, h2, input, text)
+import Html exposing (Html, button, div, h1, h2, input, p, text)
 import Html.Events exposing (onClick, onInput)
 import Maybe.Extra
 import Task
+import UsedTypes exposing (Code, Direction(..), Element, FileWithTree, Tree(..))
 
 
 type State
     = Compression
     | Decompression
-
-
-type Tree
-    = Empty
-    | Node Tree Tree
-    | Leaf Element
-
-
-type Direction
-    = Left
-    | Right
-
-
-type alias Code =
-    List Direction
-
-
-type alias Element =
-    { char : Char
-    , numberOf : Int
-    }
-
-
-type alias FileWithTree =
-    { text : List Code
-    , tree : Tree
-    }
 
 
 decompress : Tree -> List Code -> String
@@ -71,26 +47,14 @@ getCharInTreeByCode tree code =
                 getCharInTreeByCode second (List.drop 1 code)
 
 
-stringFromCode : Code -> String
-stringFromCode code =
-    List.map
-        (\direction ->
-            case direction of
-                Left ->
-                    '0'
-
-                Right ->
-                    '1'
-        )
-        code
-        |> String.fromList
-
-
-compress : String -> ( List Code, Tree )
+compress : String -> ( Tree, List Code )
 compress text =
     let
+        tree =
+            generateTree text
+
         dictFromTree =
-            createCharCodeDictFromTree (generateTree text)
+            createCharCodeDictFromTree tree
 
         codes =
             text
@@ -99,11 +63,8 @@ compress text =
                     (\char ->
                         Dict.get char dictFromTree |> Maybe.withDefault []
                     )
-
-        tree =
-            generateTree text
     in
-    ( codes, tree )
+    ( tree, codes )
 
 
 generateTree : String -> Tree
@@ -224,7 +185,7 @@ view model =
             generateTree model.stringFromFile
 
         listOfCodes =
-            Tuple.first (compress model.stringFromFile)
+            Tuple.second (compress model.stringFromFile)
     in
     div []
         [ div []
@@ -241,7 +202,7 @@ view model =
                     [ h1 [] [ text "Datei Kompremierung:" ]
                     , div [] [ text "Bitte füllen Sie dieses Textfeld aus, oder drücken sie auf den Button um eine Datei zu komprimieren" ]
                     , input [ onInput NewInput ] []
-                    , button [ onClick FileRequested ] [ text "Wählen sie eine Datei zur Komprimierung aus" ]
+                    , button [ onClick (FileRequested Compression) ] [ text "Wählen sie eine Datei zur Komprimierung aus" ]
                     , if String.isEmpty model.stringFromFile then
                         div [] []
 
@@ -254,7 +215,7 @@ view model =
                                 ]
                             , div []
                                 [ h2 [] [ text "Der Text/Die Datei mit den neuen Bits / After compression:" ]
-                                , div [] (List.map (\code -> text (code ++ " ")) (List.map stringFromCode (Tuple.first (compress model.stringFromFile))))
+                                , div [] (List.map (\code -> text (code ++ " ")) (List.map stringFromCode (Tuple.second (compress model.stringFromFile))))
                                 ]
                             , div []
                                 [ h2 [] [ text "Der Text/Die Datei nach der Wiederherstellung / After compression & decompression" ]
@@ -263,7 +224,7 @@ view model =
                                         afterCompress =
                                             compress model.stringFromFile
                                       in
-                                      text (decompress (Tuple.second afterCompress) (Tuple.first afterCompress))
+                                      text (decompress (Tuple.first afterCompress) (Tuple.second afterCompress))
                                     ]
                                 ]
                             , div []
@@ -273,7 +234,13 @@ view model =
                                         text ""
 
                                       else
-                                        button [] [ text "Hier soll der Download der komprimierten Datei gestartet werden können." ]
+                                        let
+                                            bytes =
+                                                model.stringFromFile
+                                                    |> createFileWithTree
+                                                    |> getBytesOfFileWithTree
+                                        in
+                                        button [ onClick (DownloadFileFromBytes bytes) ] [ text "Hier soll der Download der komprimierten Datei gestartet werden können." ]
                                     ]
                                 ]
                             , div []
@@ -288,15 +255,68 @@ view model =
             Just Decompression ->
                 div []
                     [ h1 [] [ text "Datei Dekomprimierung: " ]
-                    , div [] [ text "Falls Sie eine Datei dekomprimieren wollen, dann klicken Sie auf den Button und wählen eine Datei aus." ]
-                    , div [] [ button [ onClick FileRequested ] [ text "Bitte wählen Sie eine Datei zur Dekomprimierung aus" ] ]
                     , div []
-                        [ text "Hier soll die alte Datei stehen" ]
+                        [ p []
+                            [ text "Falls Sie eine Datei dekomprimieren wollen, dann klicken Sie auf den Button und wählen eine Datei aus." ]
+                        ]
+                    , div [] [ button [ onClick (FileRequested Decompression) ] [ text "Bitte wählen Sie eine Datei zur Dekomprimierung aus" ] ]
+                    , if String.isEmpty model.stringFromFile then
+                        div [] []
+
+                      else
+                        div []
+                            [ h2 [] [ text "Ihre ursprüngliche Datei:" ]
+                            , div []
+                                [ div [] [ text model.stringFromFile ]
+                                , div []
+                                    [ button [ onClick (DownloadFileFromString model.stringFromFile) ] [ text "Für den Download ihrer ursprünglichen Datei klicken Sie hier" ] ]
+                                ]
+                            ]
                     ]
 
             Nothing ->
                 div [] []
         ]
+
+
+stringFromCode : Code -> String
+stringFromCode code =
+    List.map
+        (\direction ->
+            case direction of
+                Left ->
+                    '0'
+
+                Right ->
+                    '1'
+        )
+        code
+        |> String.fromList
+
+
+createFileWithTree : String -> FileWithTree
+createFileWithTree string =
+    string
+        |> compress
+        |> (\( tree, codes ) -> FileWithTree codes tree)
+
+
+getBytesOfFileWithTree : FileWithTree -> Bytes
+getBytesOfFileWithTree file =
+    let
+        maybeEncoder =
+            file
+                |> Encoder.encodeFile
+
+        encoder =
+            case maybeEncoder of
+                Nothing ->
+                    Encode.unsignedInt8 0
+
+                Just thisEncoder ->
+                    thisEncoder
+    in
+    Encode.encode encoder
 
 
 viewTree : Tree -> Html Msg
@@ -332,10 +352,13 @@ type alias Model =
 
 type Msg
     = NewInput String
-    | FormInBytes Bytes
-    | FileRequested
-    | FileLoaded File
+    | FileRequested State
+    | FileLoaded State File
+    | TransformFileIntoBytes Bytes
     | ChangeState State
+    | DownloadFileFromBytes Bytes
+    | DownloadFileFromString String
+    | TransformCodedFileIntoFile Bytes
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -344,27 +367,64 @@ update msg model =
         NewInput newInput ->
             ( { model | stringFromFile = newInput }, Cmd.none )
 
-        ChangeState state ->
-            ( { model | state = Just state }, Cmd.none )
+        ChangeState newState ->
+            ( { model
+                | state = Just newState
+                , stringFromFile = ""
+                , codeList = []
+                , bytes = Nothing
+              }
+            , Cmd.none
+            )
 
-        FileRequested ->
-            ( model, Select.file [] FileLoaded )
+        FileRequested state ->
+            ( model, Select.file [] (FileLoaded state) )
 
-        FileLoaded file ->
-            ( model, Task.perform FormInBytes (File.toBytes file) )
+        FileLoaded state file ->
+            ( model
+            , case state of
+                Compression ->
+                    Task.perform TransformFileIntoBytes (File.toBytes file)
 
-        FormInBytes bytes ->
+                Decompression ->
+                    Task.perform TransformCodedFileIntoFile (File.toBytes file)
+            )
+
+        TransformFileIntoBytes bytes ->
             ( let
                 stringFromFile =
                     Decode.decode (Decode.string (Bytes.width bytes)) bytes |> Maybe.withDefault ""
               in
               { model
                 | stringFromFile = stringFromFile
-                , codeList = Tuple.first (compress model.stringFromFile)
+                , codeList = Tuple.second (compress model.stringFromFile)
                 , bytes = Just bytes
               }
             , Cmd.none
             )
+
+        TransformCodedFileIntoFile bytes ->
+            ( { model
+                | stringFromFile =
+                    let
+                        string =
+                            case Decode.decode Decoder.decodeFile bytes of
+                                Nothing ->
+                                    "Sry something went wrong while decoding the file!"
+
+                                Just fileWithTree ->
+                                    decompress fileWithTree.tree fileWithTree.text
+                    in
+                    string
+              }
+            , Cmd.none
+            )
+
+        DownloadFileFromBytes file ->
+            ( model, Download.bytes "kleinerTest.txt" "text/markdown" file )
+
+        DownloadFileFromString string ->
+            ( model, Download.string "kleinerTest.txt" "test/markdown" string )
 
 
 subscriptions : Model -> Sub Msg

@@ -2,7 +2,7 @@ module Decoder exposing (decodeChar, decodeCode, decodeElement, decodeFile, deco
 
 import Bytes
 import Bytes.Decode as Decode exposing (Decoder, Step(..))
-import Main exposing (Code, Direction(..), Element, FileWithTree, Tree(..))
+import UsedTypes exposing (Code, Direction(..), Element, FileWithTree, Tree(..))
 
 
 decodeFile : Decoder FileWithTree

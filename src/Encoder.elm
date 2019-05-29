@@ -3,7 +3,7 @@ module Encoder exposing (encodeCode, encodeElement, encodeFile, encodeText, enco
 import Bitwise
 import Bytes
 import Bytes.Encode as Encode exposing (Encoder)
-import Main exposing (Code, Direction(..), Element, FileWithTree, Tree(..))
+import UsedTypes exposing (Code, Direction(..), Element, FileWithTree, Tree(..))
 
 
 encodeCode : Code -> Encoder

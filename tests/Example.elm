@@ -6,8 +6,8 @@ import Bytes.Encode as Encode
 import Decoder exposing (decodeCode, decodeElement, decodeFile, decodeText, decodeTree)
 import Encoder exposing (encodeCode, encodeElement, encodeFile, encodeText, encodeTree)
 import Expect exposing (Expectation)
-import Main exposing (Code, Direction(..), Element, FileWithTree, Tree(..))
 import Test exposing (..)
+import UsedTypes exposing (Code, Direction(..), Element, FileWithTree, Tree(..))
 
 
 suite : Test
