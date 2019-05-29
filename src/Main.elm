@@ -240,7 +240,17 @@ view model =
                                                     |> createFileWithTree
                                                     |> getBytesOfFileWithTree
                                         in
-                                        button [ onClick (DownloadFileFromBytes bytes) ] [ text "Hier soll der Download der komprimierten Datei gestartet werden können." ]
+                                        div []
+                                            [ p []
+                                                [ text "Bitte geben Sie den Namen für die neu erstellte Datei ein: "
+                                                , input [ onInput UpdateFileName ] []
+                                                ]
+                                            , if String.isEmpty model.downloadFileName then
+                                                div [] []
+
+                                              else
+                                                button [ onClick (DownloadFileFromBytes model.downloadFileName bytes) ] [ text "Starten Sie den Download der Datei hier" ]
+                                            ]
                                     ]
                                 ]
                             , div []
@@ -267,9 +277,9 @@ view model =
                         div []
                             [ h2 [] [ text "Ihre ursprüngliche Datei:" ]
                             , div []
-                                [ div [] [ text model.stringFromFile ]
+                                [ p [] [ text model.stringFromFile ]
                                 , div []
-                                    [ button [ onClick (DownloadFileFromString model.stringFromFile) ] [ text "Für den Download ihrer ursprünglichen Datei klicken Sie hier" ] ]
+                                    [ button [ onClick (DownloadFileFromString model.downloadFileName model.stringFromFile) ] [ text "Für den Download ihrer ursprünglichen Datei klicken Sie hier" ] ]
                                 ]
                             ]
                     ]
@@ -347,6 +357,7 @@ type alias Model =
     , stringFromFile : String
     , codeList : List Code
     , bytes : Maybe Bytes
+    , downloadFileName : String
     }
 
 
@@ -356,9 +367,10 @@ type Msg
     | FileLoaded State File
     | TransformFileIntoBytes Bytes
     | ChangeState State
-    | DownloadFileFromBytes Bytes
-    | DownloadFileFromString String
+    | DownloadFileFromBytes String Bytes
+    | DownloadFileFromString String String
     | TransformCodedFileIntoFile Bytes
+    | UpdateFileName String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -373,6 +385,7 @@ update msg model =
                 , stringFromFile = ""
                 , codeList = []
                 , bytes = Nothing
+                , downloadFileName = ""
               }
             , Cmd.none
             )
@@ -420,11 +433,14 @@ update msg model =
             , Cmd.none
             )
 
-        DownloadFileFromBytes file ->
-            ( model, Download.bytes "kleinerTest.txt" "text/markdown" file )
+        DownloadFileFromBytes name file ->
+            ( model, Download.bytes (name ++ ".txt") "text/markdown" file )
 
-        DownloadFileFromString string ->
-            ( model, Download.string "kleinerTest.txt" "test/markdown" string )
+        DownloadFileFromString name string ->
+            ( model, Download.string (name ++ ".txt") "test/markdown" string )
+
+        UpdateFileName newName ->
+            ( { model | downloadFileName = newName }, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
@@ -438,6 +454,7 @@ init _ =
       , stringFromFile = ""
       , codeList = []
       , bytes = Nothing
+      , downloadFileName = ""
       }
     , Cmd.none
     )
