@@ -9,15 +9,17 @@ The higher the frequency of a char in the string the shorter is the sequence of 
 
 ## About this project
 
+### How to start this project
+
+If you want to use this project you first have to clone this repository.
+After cloning this repository you could start the Huffman-Codding with the command `elm reactor` in your terminal.
+
+### Description
+
 This project is a implementation of the Huffman-Coding in Elm.
 The User can write a `string` into the input field.
 This project compress this string and views the used `tree` and `list code`.
 Afterwards it transforms the codes back into the original `string`.
-
-### To start this project
-
-If you want to use this project you first have to clone this repository.
-After cloning this repository you could start the Huffman-Codding with the command `elm reactor` in your terminal.
 
 ## About the functions
 
