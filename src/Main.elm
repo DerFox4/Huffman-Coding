@@ -2,7 +2,7 @@ module Main exposing (compress, decompress)
 
 import Browser
 import Bytes exposing (Bytes)
-import Bytes.Decode as Decode exposing (Decoder, Step(..))
+import Bytes.Decode as Decode
 import Bytes.Encode as Encode
 import Decoder
 import Dict exposing (Dict)
@@ -10,14 +10,14 @@ import Encoder
 import File exposing (File)
 import File.Download as Download
 import File.Select as Select
-import Html exposing (Html, button, div, h1, h2, input, p, text)
+import Html exposing (Html, button, div, h1, h2, input, p, pre, text)
 import Html.Events exposing (onClick, onInput)
 import Maybe.Extra
 import Task
 import UsedTypes exposing (Code, Direction(..), Element, FileWithTree, Tree(..))
 
 
-type State
+type Task
     = Compression
     | Decompression
 
@@ -25,13 +25,13 @@ type State
 decompress : Tree -> List Code -> String
 decompress tree textInCodes =
     textInCodes
-        |> List.map (getCharInTreeByCode tree)
+        |> List.map (getCharFromTreeByCode tree)
         |> Maybe.Extra.values
         |> String.fromList
 
 
-getCharInTreeByCode : Tree -> Code -> Maybe Char
-getCharInTreeByCode tree code =
+getCharFromTreeByCode : Tree -> Code -> Maybe Char
+getCharFromTreeByCode tree code =
     case tree of
         Empty ->
             Nothing
@@ -41,10 +41,10 @@ getCharInTreeByCode tree code =
 
         Node first second ->
             if List.head code == Just Left then
-                getCharInTreeByCode first (List.drop 1 code)
+                getCharFromTreeByCode first (List.drop 1 code)
 
             else
-                getCharInTreeByCode second (List.drop 1 code)
+                getCharFromTreeByCode second (List.drop 1 code)
 
 
 compress : String -> ( Tree, List Code )
@@ -180,13 +180,6 @@ main =
 
 view : Model -> Html Msg
 view model =
-    let
-        tree =
-            generateTree model.stringFromFile
-
-        listOfCodes =
-            Tuple.second (compress model.stringFromFile)
-    in
     div []
         [ div []
             [ h1 [] [ text "Huffman-Coding" ]
@@ -196,10 +189,10 @@ view model =
                 , button [ onClick (ChangeState Decompression) ] [ text "Dekomprimieren" ]
                 ]
             ]
-        , case model.state of
+        , case model.task of
             Just Compression ->
                 div []
-                    [ h1 [] [ text "Datei Kompremierung:" ]
+                    [ h2 [] [ text "Datei Kompremierung:" ]
                     , div [] [ text "Bitte füllen Sie dieses Textfeld aus, oder drücken sie auf den Button um eine Datei zu komprimieren" ]
                     , input [ onInput NewInput ] []
                     , button [ onClick (FileRequested Compression) ] [ text "Wählen sie eine Datei zur Komprimierung aus" ]
@@ -209,25 +202,6 @@ view model =
                       else
                         div []
                             [ div []
-                                [ h1 [] [ text "Infos zur Komprimierung:" ]
-                                , h2 [] [ text "Das beinhaltet der Baum:" ]
-                                , div [] [ viewTree tree ]
-                                ]
-                            , div []
-                                [ h2 [] [ text "Der Text/Die Datei mit den neuen Bits / After compression:" ]
-                                , div [] (List.map (\code -> text (code ++ " ")) (List.map stringFromCode (Tuple.second (compress model.stringFromFile))))
-                                ]
-                            , div []
-                                [ h2 [] [ text "Der Text/Die Datei nach der Wiederherstellung / After compression & decompression" ]
-                                , div []
-                                    [ let
-                                        afterCompress =
-                                            compress model.stringFromFile
-                                      in
-                                      text (decompress (Tuple.first afterCompress) (Tuple.second afterCompress))
-                                    ]
-                                ]
-                            , div []
                                 [ h2 [] [ text "Download-File" ]
                                 , div []
                                     [ if String.isEmpty model.stringFromFile then
@@ -241,7 +215,7 @@ view model =
                                                     |> getBytesOfFileWithTree
                                         in
                                         div []
-                                            [ p []
+                                            [ div []
                                                 [ text "Bitte geben Sie den Namen für die neu erstellte Datei ein: "
                                                 , input [ onInput UpdateFileName ] []
                                                 ]
@@ -250,14 +224,41 @@ view model =
 
                                               else
                                                 button [ onClick (DownloadFileFromBytes model.downloadFileName bytes) ] [ text "Starten Sie den Download der Datei hier" ]
+                                            , div []
+                                                [ h2 [] [ text "Wollen Sie Informationen zur Kompression erhalten?" ]
+                                                , div [] [ button [ onClick ChangeFurtherInformation ] [ text "Klicken Sie hier" ] ]
+                                                ]
+                                            , if model.furtherInformation then
+                                                let
+                                                    tree =
+                                                        generateTree model.stringFromFile
+                                                in
+                                                div []
+                                                    [ div []
+                                                        [ h1 [] [ text "Infos zur Komprimierung:" ]
+                                                        , h2 [] [ text "Das beinhaltet der Baum:" ]
+                                                        , div [] [ viewTree tree ]
+                                                        ]
+                                                    , div []
+                                                        [ h2 [] [ text "Der Text/Die Datei mit den neuen Bits / After compression:" ]
+                                                        , div [] (List.map (\code -> text (code ++ " ")) (List.map stringFromCode (Tuple.second (compress model.stringFromFile))))
+                                                        ]
+                                                    , div []
+                                                        [ h2 [] [ text "Der Text/Die Datei nach der Wiederherstellung / After compression & decompression" ]
+                                                        , div []
+                                                            [ let
+                                                                afterCompress =
+                                                                    compress model.stringFromFile
+                                                              in
+                                                              text (decompress (Tuple.first afterCompress) (Tuple.second afterCompress))
+                                                            ]
+                                                        ]
+                                                    ]
+
+                                              else
+                                                div [] []
                                             ]
                                     ]
-                                ]
-                            , div []
-                                [ h2 [] [ text "Wörter & Zeichen:" ]
-                                , div [] [ model.stringFromFile |> String.words |> List.length |> String.fromInt |> (++) "Genutzte Wörter: " |> text ]
-                                , div [] [ List.length listOfCodes |> String.fromInt |> (++) "Genutzte Zeichen: " |> text ]
-                                , div [] [ "Der String beinhaltet: " ++ (countChars model.stringFromFile |> Dict.size |> String.fromInt) ++ " verschiedene Zeichen!" |> text ]
                                 ]
                             ]
                     ]
@@ -275,12 +276,31 @@ view model =
 
                       else
                         div []
-                            [ h2 [] [ text "Ihre ursprüngliche Datei:" ]
-                            , div []
-                                [ p [] [ text model.stringFromFile ]
-                                , div []
-                                    [ button [ onClick (DownloadFileFromString model.downloadFileName model.stringFromFile) ] [ text "Für den Download ihrer ursprünglichen Datei klicken Sie hier" ] ]
+                            [ div []
+                                [ h2 [] [ text "Download:" ]
+                                , p []
+                                    [ text "Bitte geben Sie den Namen für die neu erstellte Datei ein: "
+                                    , input [ onInput UpdateFileName ] []
+                                    ]
+                                , if String.isEmpty model.downloadFileName then
+                                    div [] []
+
+                                  else
+                                    div [] [ button [ onClick (DownloadFileFromString model.downloadFileName model.stringFromFile) ] [ text "Für den Download ihrer ursprünglichen Datei klicken Sie hier" ] ]
                                 ]
+                            , div []
+                                [ h2 [] [ text "Wollen Sie eine Vorschau zur Datei haben?" ]
+                                , div [] [ button [ onClick ChangeFurtherInformation ] [ text "Klicken Sie hier" ] ]
+                                ]
+                            , if model.furtherInformation then
+                                div []
+                                    [ h2 [] [ text "Ihre ursprüngliche Datei:" ]
+                                    , div []
+                                        [ pre [] [ text model.stringFromFile ] ]
+                                    ]
+
+                              else
+                                div [] []
                             ]
                     ]
 
@@ -353,24 +373,26 @@ viewTreeHelp tree currentCode =
 
 
 type alias Model =
-    { state : Maybe State
+    { task : Maybe Task
     , stringFromFile : String
     , codeList : List Code
     , bytes : Maybe Bytes
     , downloadFileName : String
+    , furtherInformation : Bool
     }
 
 
 type Msg
     = NewInput String
-    | FileRequested State
-    | FileLoaded State File
+    | FileRequested Task
+    | FileLoaded Task File
     | TransformFileIntoBytes Bytes
-    | ChangeState State
+    | ChangeState Task
     | DownloadFileFromBytes String Bytes
     | DownloadFileFromString String String
     | TransformCodedFileIntoFile Bytes
     | UpdateFileName String
+    | ChangeFurtherInformation
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -381,11 +403,12 @@ update msg model =
 
         ChangeState newState ->
             ( { model
-                | state = Just newState
+                | task = Just newState
                 , stringFromFile = ""
                 , codeList = []
                 , bytes = Nothing
                 , downloadFileName = ""
+                , furtherInformation = False
               }
             , Cmd.none
             )
@@ -423,7 +446,7 @@ update msg model =
                         string =
                             case Decode.decode Decoder.decodeFile bytes of
                                 Nothing ->
-                                    "Sry something went wrong while decoding the file!"
+                                    "Tut uns Leid, aber diese Datei konnte nicht Dekodiert werden!"
 
                                 Just fileWithTree ->
                                     decompress fileWithTree.tree fileWithTree.text
@@ -442,6 +465,9 @@ update msg model =
         UpdateFileName newName ->
             ( { model | downloadFileName = newName }, Cmd.none )
 
+        ChangeFurtherInformation ->
+            ( { model | furtherInformation = not model.furtherInformation }, Cmd.none )
+
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
@@ -450,11 +476,12 @@ subscriptions _ =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { state = Nothing
+    ( { task = Nothing
       , stringFromFile = ""
       , codeList = []
       , bytes = Nothing
       , downloadFileName = ""
+      , furtherInformation = False
       }
     , Cmd.none
     )
