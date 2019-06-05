@@ -25,8 +25,8 @@ Afterwards it transforms the codes back into the original `string`.
 ## About the functions
 
 #### Compress
-Compress a string into a list of bit sequences.
-Additionally the function compress will return the tree which was used to compress the string.
+Compress a string into a Huffman-Coding-Tree and a list of codes.
+Each code is a description how to find the char in the tree.
 
 #### Decompress
 Decompress creates the original string from a list of codes and the associated tree.

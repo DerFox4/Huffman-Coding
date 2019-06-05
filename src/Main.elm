@@ -10,7 +10,7 @@ import Encoder
 import File exposing (File)
 import File.Download as Download
 import File.Select as Select
-import Html exposing (Html, button, div, h1, h2, input, p, pre, text)
+import Html exposing (Html, button, div, h1, h2, h3, input, p, pre, text)
 import Html.Events exposing (onClick, onInput)
 import Maybe.Extra
 import Task
@@ -180,6 +180,15 @@ main =
 
 view : Model -> Html Msg
 view model =
+    let
+        stringFromFile =
+            case model.stringFromFile of
+                Err _ ->
+                    "Tut uns leid, etwas ist schiefgelaufen"
+
+                Ok string ->
+                    string
+    in
     div []
         [ div []
             [ h1 [] [ text "Huffman-Coding" ]
@@ -193,10 +202,19 @@ view model =
             Just Compression ->
                 div []
                     [ h2 [] [ text "Datei Kompremierung:" ]
-                    , div [] [ text "Bitte füllen Sie dieses Textfeld aus, oder drücken sie auf den Button um eine Datei zu komprimieren" ]
-                    , input [ onInput NewInput ] []
-                    , button [ onClick (FileRequested Compression) ] [ text "Wählen sie eine Datei zur Komprimierung aus" ]
-                    , if String.isEmpty model.stringFromFile then
+                    , if String.isEmpty stringFromFile then
+                        div []
+                            [ div [] [ text "Bitte füllen Sie dieses Textfeld aus, oder drücken sie auf den Button um eine Datei zu komprimieren" ]
+                            , input [ onInput NewInput ] []
+                            , button [ onClick (FileRequested Compression) ] [ text "Wählen sie eine Datei zur Komprimierung aus" ]
+                            ]
+
+                      else
+                        div []
+                            [ h3 [] [ text "Der Inhalt ihrer aktuell ausgewählten Datei ist:" ]
+                            , pre [] [ text stringFromFile ]
+                            ]
+                    , if String.isEmpty stringFromFile then
                         div [] []
 
                       else
@@ -204,34 +222,50 @@ view model =
                             [ div []
                                 [ h2 [] [ text "Download-File" ]
                                 , div []
-                                    [ if String.isEmpty model.stringFromFile then
+                                    [ if String.isEmpty stringFromFile then
                                         text ""
 
                                       else
                                         let
                                             bytes =
-                                                model.stringFromFile
+                                                stringFromFile
                                                     |> createFileWithTree
                                                     |> getBytesOfFileWithTree
                                         in
                                         div []
                                             [ div []
-                                                [ text "Bitte geben Sie den Namen für die neu erstellte Datei ein: "
-                                                , input [ onInput UpdateFileName ] []
+                                                [ text "Bitte geben Sie im Input-Feld einen Namen an unter dem Sie die komprimierte Datei speichern wollen:"
+                                                , div []
+                                                    [ input [ onInput UpdateFileName ] []
+                                                    , div []
+                                                        [ button [ onClick (FileRequested Compression) ] [ text "Eine andere Datei wählen" ]
+                                                        ]
+                                                    ]
                                                 ]
                                             , if String.isEmpty model.downloadFileName then
                                                 div [] []
 
                                               else
-                                                button [ onClick (DownloadFileFromBytes model.downloadFileName bytes) ] [ text "Starten Sie den Download der Datei hier" ]
+                                                div []
+                                                    [ h3 [] [ text "Download abschließen:" ]
+                                                    , button [ onClick (DownloadFileFromBytes model.downloadFileName bytes) ] [ text "Starten Sie den Download der Datei hier" ]
+                                                    ]
                                             , div []
                                                 [ h2 [] [ text "Wollen Sie Informationen zur Kompression erhalten?" ]
-                                                , div [] [ button [ onClick ChangeFurtherInformation ] [ text "Klicken Sie hier" ] ]
+                                                , div []
+                                                    [ button [ onClick ChangeFurtherInformation ]
+                                                        [ if model.furtherInformation then
+                                                            text "Weniger Infos"
+
+                                                          else
+                                                            text "Mehr Infos"
+                                                        ]
+                                                    ]
                                                 ]
                                             , if model.furtherInformation then
                                                 let
                                                     tree =
-                                                        generateTree model.stringFromFile
+                                                        generateTree stringFromFile
                                                 in
                                                 div []
                                                     [ div []
@@ -241,17 +275,7 @@ view model =
                                                         ]
                                                     , div []
                                                         [ h2 [] [ text "Der Text/Die Datei mit den neuen Bits / After compression:" ]
-                                                        , div [] (List.map (\code -> text (code ++ " ")) (List.map stringFromCode (Tuple.second (compress model.stringFromFile))))
-                                                        ]
-                                                    , div []
-                                                        [ h2 [] [ text "Der Text/Die Datei nach der Wiederherstellung / After compression & decompression" ]
-                                                        , div []
-                                                            [ let
-                                                                afterCompress =
-                                                                    compress model.stringFromFile
-                                                              in
-                                                              text (decompress (Tuple.first afterCompress) (Tuple.second afterCompress))
-                                                            ]
+                                                        , div [] (List.map (\code -> text (code ++ " ")) (List.map stringFromCode (Tuple.second (compress stringFromFile))))
                                                         ]
                                                     ]
 
@@ -271,36 +295,51 @@ view model =
                             [ text "Falls Sie eine Datei dekomprimieren wollen, dann klicken Sie auf den Button und wählen eine Datei aus." ]
                         ]
                     , div [] [ button [ onClick (FileRequested Decompression) ] [ text "Bitte wählen Sie eine Datei zur Dekomprimierung aus" ] ]
-                    , if String.isEmpty model.stringFromFile then
+                    , if String.isEmpty stringFromFile then
                         div [] []
 
                       else
                         div []
                             [ div []
                                 [ h2 [] [ text "Download:" ]
-                                , p []
-                                    [ text "Bitte geben Sie den Namen für die neu erstellte Datei ein: "
-                                    , input [ onInput UpdateFileName ] []
-                                    ]
-                                , if String.isEmpty model.downloadFileName then
-                                    div [] []
+                                , case model.stringFromFile of
+                                    Err _ ->
+                                        div [] [ text "Es tut uns leid, aber diese Datei kann nicht von uns dekomprimiert werden!" ]
 
-                                  else
-                                    div [] [ button [ onClick (DownloadFileFromString model.downloadFileName model.stringFromFile) ] [ text "Für den Download ihrer ursprünglichen Datei klicken Sie hier" ] ]
-                                ]
-                            , div []
-                                [ h2 [] [ text "Wollen Sie eine Vorschau zur Datei haben?" ]
-                                , div [] [ button [ onClick ChangeFurtherInformation ] [ text "Klicken Sie hier" ] ]
-                                ]
-                            , if model.furtherInformation then
-                                div []
-                                    [ h2 [] [ text "Ihre ursprüngliche Datei:" ]
-                                    , div []
-                                        [ pre [] [ text model.stringFromFile ] ]
-                                    ]
+                                    Ok string ->
+                                        div []
+                                            [ p []
+                                                [ text "Bitte geben Sie den Namen für die wiederhergestellte Datei ein: "
+                                                , input [ onInput UpdateFileName ] []
+                                                ]
+                                            , if String.isEmpty model.downloadFileName then
+                                                div [] []
 
-                              else
-                                div [] []
+                                              else
+                                                div [] [ button [ onClick (DownloadFileFromString model.downloadFileName stringFromFile) ] [ text "Für den Download ihrer ursprünglichen Datei klicken Sie hier" ] ]
+                                            , div []
+                                                [ h2 [] [ text "Wollen Sie eine Vorschau zur Datei haben?" ]
+                                                , div []
+                                                    [ button [ onClick ChangeFurtherInformation ]
+                                                        [ if model.furtherInformation then
+                                                            text "Vorschau schließen"
+
+                                                          else
+                                                            text "Klicken Sie hier"
+                                                        ]
+                                                    ]
+                                                ]
+                                            , if model.furtherInformation then
+                                                div []
+                                                    [ h2 [] [ text "Vorschau zur wiederhergestellten Datei" ]
+                                                    , div []
+                                                        [ pre [] [ text stringFromFile ] ]
+                                                    ]
+
+                                              else
+                                                div [] []
+                                            ]
+                                ]
                             ]
                     ]
 
@@ -374,7 +413,7 @@ viewTreeHelp tree currentCode =
 
 type alias Model =
     { task : Maybe Task
-    , stringFromFile : String
+    , stringFromFile : Result String String
     , codeList : List Code
     , bytes : Maybe Bytes
     , downloadFileName : String
@@ -399,12 +438,12 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         NewInput newInput ->
-            ( { model | stringFromFile = newInput }, Cmd.none )
+            ( { model | stringFromFile = Ok newInput }, Cmd.none )
 
         ChangeState newState ->
             ( { model
                 | task = Just newState
-                , stringFromFile = ""
+                , stringFromFile = Ok ""
                 , codeList = []
                 , bytes = Nothing
                 , downloadFileName = ""
@@ -429,11 +468,24 @@ update msg model =
         TransformFileIntoBytes bytes ->
             ( let
                 stringFromFile =
-                    Decode.decode (Decode.string (Bytes.width bytes)) bytes |> Maybe.withDefault ""
+                    case Decode.decode (Decode.string (Bytes.width bytes)) bytes of
+                        Nothing ->
+                            Err ""
+
+                        Just string ->
+                            Ok string
+
+                toCompress =
+                    case model.stringFromFile of
+                        Err _ ->
+                            ""
+
+                        Ok string ->
+                            string
               in
               { model
                 | stringFromFile = stringFromFile
-                , codeList = Tuple.second (compress model.stringFromFile)
+                , codeList = Tuple.second (compress toCompress)
                 , bytes = Just bytes
               }
             , Cmd.none
@@ -446,10 +498,10 @@ update msg model =
                         string =
                             case Decode.decode Decoder.decodeFile bytes of
                                 Nothing ->
-                                    "Tut uns Leid, aber diese Datei konnte nicht Dekodiert werden!"
+                                    Err "Tut uns Leid, aber diese Datei konnte nicht Dekodiert werden!"
 
                                 Just fileWithTree ->
-                                    decompress fileWithTree.tree fileWithTree.text
+                                    Ok (decompress fileWithTree.tree fileWithTree.text)
                     in
                     string
               }
@@ -477,7 +529,7 @@ subscriptions _ =
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { task = Nothing
-      , stringFromFile = ""
+      , stringFromFile = Err ""
       , codeList = []
       , bytes = Nothing
       , downloadFileName = ""
