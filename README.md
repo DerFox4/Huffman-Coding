@@ -1,32 +1,58 @@
-# Huffman-Coding
-
-## About Huffman-Coding
+## Huffman-Coding
 
 The Huffman-Coding is a smart way for compression and decompression.
-Its used for lossless data compression.
+It's used for lossless data compression.
 For compression the algorithm counts the frequency of chars.
-The higher the frequency of a char in the string the shorter is the sequence of bits.
+The higher the frequency of a char in the string the shorter is the sequence of bits which are used to represent the char.
 
-## About this project
+## Example of a Huffman-Coding-Tree:
+```
+The Code will be created by the directions --------------
+  you had to follow to get to the char          |        |
+                                                v        |
+                                              Right -->  |
+               ---------------------Node-----------------|---
+              |                              /           |   |
+              |                             /            |   |
+              |                            /             v   |
+              v          i will get the code:        <- Left v
+       -----Node-----      Right, Left, Left --->    -------Node-------
+      |              |            |        \        |                  |
+      |              |            |         \       |                  |
+      v              v            |          \      v                  v
+Leaf 's' 2    -----Node-----      |          -----Node-----      Leaf 'r' 2
+             |              |     |         |              |
+             |              |     |         |              |
+             v              v     |         v              v
+      Leaf ('u') 1    Leaf 'p' 1   -->Leaf 'i' 1     Leaf 'e' (1)
+             ^                                                 ^
+             |                                                 |
+             |                                                 |
+             |   How often the Char was used in the String ----
+             |
+             |
+              ---- The char which is decoded
+```
 
-### How to start this project
+### One possible String is: surprise
 
-If you want to use this project you first have to clone this repository.
-Afterwards you can start the Huffman-Codding if you write the command `elm reactor` in your terminal.
-Last you have to open a browser and visit `localhost:8000`.
+```
+                        -----------------------------
+                        | Char |        Code        |
+                        |------|--------------------|
+                        |  s   |     Left, Left     |
+                        |  u   | Left, Right, Left  |
+                        |  r   |    Right, Right    |
+                        |  p   | Left, Right, Right |
+                        |  r   |    Right, Right    |
+                        |  i   | Right, Left, Left  |
+                        |  s   |     Left, Left     |
+                        |  e   | Right, Left, Right |
+                        -----------------------------
+```
 
-### Description
+## Functions:
 
-This project is a implementation of the Huffman-Coding in Elm.
-The User can write a `string` into the input field.
-This project compress this string and views the used `tree` and `list code`.
-Afterwards it transforms the codes back into the original `string`.
-
-## About the functions
-
-#### Compress
-Compress a string into a Huffman-Coding-Tree and a list of codes.
-Each code is a description how to find the char in the tree.
-
-#### Decompress
-Decompress creates the original string from a list of codes and the associated tree.
+This package contains functions to compress and decompress a text.
+Further it has some function to work with Huffman-Coding-Trees.
+At least there are some function to encode and decode the types into sequences of bytes.

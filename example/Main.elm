@@ -1,172 +1,21 @@
-module Main exposing (compress, decompress)
+module Main exposing (main)
 
 import Browser
 import Bytes exposing (Bytes)
-import Bytes.Decode as Decode
-import Bytes.Encode as Encode
-import Decoder
-import Dict exposing (Dict)
-import Encoder
+import Bytes.Decode as Decode exposing (Decoder)
+import Bytes.Encode as Encode exposing (Encoder)
 import File exposing (File)
 import File.Download as Download
 import File.Select as Select
 import Html exposing (Html, button, div, h1, h2, h3, input, p, pre, text)
 import Html.Events exposing (onClick, onInput)
-import Maybe.Extra
+import HuffmanCoding exposing (Code, Direction(..), HuffmanFile, Tree(..))
 import Task
-import UsedTypes exposing (Code, Direction(..), Element, FileWithTree, Tree(..))
 
 
 type Task
     = Compression
     | Decompression
-
-
-decompress : Tree -> List Code -> String
-decompress tree textInCodes =
-    textInCodes
-        |> List.map (getCharFromTreeByCode tree)
-        |> Maybe.Extra.values
-        |> String.fromList
-
-
-getCharFromTreeByCode : Tree -> Code -> Maybe Char
-getCharFromTreeByCode tree code =
-    case tree of
-        Empty ->
-            Nothing
-
-        Leaf element ->
-            Just element.char
-
-        Node first second ->
-            if List.head code == Just Left then
-                getCharFromTreeByCode first (List.drop 1 code)
-
-            else
-                getCharFromTreeByCode second (List.drop 1 code)
-
-
-compress : String -> ( Tree, List Code )
-compress text =
-    let
-        tree =
-            generateTree text
-
-        dictFromTree =
-            createCharCodeDictFromTree tree
-
-        codes =
-            text
-                |> String.toList
-                |> List.map
-                    (\char ->
-                        Dict.get char dictFromTree |> Maybe.withDefault []
-                    )
-    in
-    ( tree, codes )
-
-
-generateTree : String -> Tree
-generateTree text =
-    let
-        characterCounts =
-            countChars text
-                |> Dict.toList
-                |> List.map (\( char, int ) -> Element char int)
-    in
-    List.map Leaf characterCounts
-        |> mergeTrees
-
-
-countChars : String -> Dict Char Int
-countChars text =
-    countCharsHelp (String.toList text) Dict.empty
-
-
-countCharsHelp : List Char -> Dict Char Int -> Dict Char Int
-countCharsHelp text characterCounts =
-    case text of
-        currentChar :: remainingCharacters ->
-            countCharsHelp remainingCharacters (incrementCounter currentChar characterCounts)
-
-        [] ->
-            characterCounts
-
-
-incrementCounter : comparable -> Dict comparable Int -> Dict comparable Int
-incrementCounter key =
-    Dict.update key <|
-        \value ->
-            case value of
-                Just existingCount ->
-                    Just (existingCount + 1)
-
-                Nothing ->
-                    Just 1
-
-
-mergeTrees : List Tree -> Tree
-mergeTrees trees =
-    case trees of
-        [] ->
-            Empty
-
-        first :: [] ->
-            first
-
-        _ ->
-            mergeLowestCounts trees
-                |> mergeTrees
-
-
-mergeLowestCounts : List Tree -> List Tree
-mergeLowestCounts trees =
-    let
-        sortedTrees =
-            List.sortBy calculateCount trees
-    in
-    case sortedTrees of
-        first :: second :: tail ->
-            Node first second :: tail
-
-        _ ->
-            trees
-
-
-calculateCount : Tree -> Int
-calculateCount tree =
-    case tree of
-        Empty ->
-            0
-
-        Leaf element ->
-            element.numberOf
-
-        Node first second ->
-            calculateCount first + calculateCount second
-
-
-createCharCodeDictFromTree : Tree -> Dict Char Code
-createCharCodeDictFromTree tree =
-    listCodeOfCharFromTree tree [] []
-        |> Dict.fromList
-
-
-listCodeOfCharFromTree : Tree -> Code -> List ( Char, Code ) -> List ( Char, Code )
-listCodeOfCharFromTree tree currentCode listOfCodes =
-    case tree of
-        Empty ->
-            listOfCodes
-
-        Leaf element ->
-            ( element.char, currentCode ) :: listOfCodes
-
-        Node first second ->
-            [ listCodeOfCharFromTree first (List.singleton Left |> List.append currentCode) listOfCodes
-            , listCodeOfCharFromTree second (List.singleton Right |> List.append currentCode) listOfCodes
-            ]
-                |> List.concat
 
 
 main =
@@ -265,7 +114,7 @@ view model =
                                             , if model.furtherInformation then
                                                 let
                                                     tree =
-                                                        generateTree stringFromFile
+                                                        HuffmanCoding.generateTree stringFromFile
                                                 in
                                                 div []
                                                     [ div []
@@ -275,7 +124,7 @@ view model =
                                                         ]
                                                     , div []
                                                         [ h2 [] [ text "Der Text/Die Datei mit den neuen Bits / After compression:" ]
-                                                        , div [] (List.map (\code -> text (code ++ " ")) (List.map stringFromCode (Tuple.second (compress stringFromFile))))
+                                                        , div [] (List.map (\code -> text (code ++ " ")) (List.map stringFromCode (Tuple.second (HuffmanCoding.compress stringFromFile))))
                                                         ]
                                                     ]
 
@@ -333,7 +182,7 @@ view model =
                                                 div []
                                                     [ h2 [] [ text "Vorschau zur wiederhergestellten Datei" ]
                                                     , div []
-                                                        [ pre [] [ text stringFromFile ] ]
+                                                        [ pre [] [ text string ] ]
                                                     ]
 
                                               else
@@ -363,19 +212,19 @@ stringFromCode code =
         |> String.fromList
 
 
-createFileWithTree : String -> FileWithTree
+createFileWithTree : String -> HuffmanFile
 createFileWithTree string =
     string
-        |> compress
-        |> (\( tree, codes ) -> FileWithTree codes tree)
+        |> HuffmanCoding.compress
+        |> (\( tree, codes ) -> HuffmanFile codes tree)
 
 
-getBytesOfFileWithTree : FileWithTree -> Bytes
+getBytesOfFileWithTree : HuffmanFile -> Bytes
 getBytesOfFileWithTree file =
     let
         maybeEncoder =
             file
-                |> Encoder.encodeFile
+                |> HuffmanCoding.encodeFile
 
         encoder =
             case maybeEncoder of
@@ -485,7 +334,7 @@ update msg model =
               in
               { model
                 | stringFromFile = stringFromFile
-                , codeList = Tuple.second (compress toCompress)
+                , codeList = Tuple.second (HuffmanCoding.compress toCompress)
                 , bytes = Just bytes
               }
             , Cmd.none
@@ -496,12 +345,12 @@ update msg model =
                 | stringFromFile =
                     let
                         string =
-                            case Decode.decode Decoder.decodeFile bytes of
+                            case Decode.decode HuffmanCoding.decodeFile bytes of
                                 Nothing ->
                                     Err "Tut uns Leid, aber diese Datei konnte nicht Dekodiert werden!"
 
                                 Just fileWithTree ->
-                                    Ok (decompress fileWithTree.tree fileWithTree.text)
+                                    Ok (HuffmanCoding.decompress fileWithTree.tree fileWithTree.text)
                     in
                     string
               }
