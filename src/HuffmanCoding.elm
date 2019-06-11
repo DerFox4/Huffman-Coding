@@ -1,33 +1,41 @@
 module HuffmanCoding exposing
-    ( Tree(..), Code, Direction(..), HuffmanFile
+    ( Tree(..), Element, Code, Direction(..), HuffmanFile
     , compress
     , decompress
-    , decodeTree, decodeCode, decodeFile
-    , encodeTree, encodeCode, encodeFile
+    , encodeCode, encodeTree, encodeFile
+    , decodeCode, decodeTree, decodeFile
     , createCharCodeDictFromTree, getCharFromTreeByCode, generateTree
     )
 
-{-| #Types
+{-|
 
-@docs Tree, Code, Direction, HuffmanFile
 
-#Compression
+# Types
+
+@docs Tree, Element, Code, Direction, HuffmanFile
+
+
+# Compression
 
 @docs compress
 
-#Decompression
+
+# Decompression
 
 @docs decompress
 
-#Decoder
 
-@docs decodeTree, decodeCode, decodeFile
+# Encoder
 
-#Encoder
+@docs encodeCode, encodeTree, encodeFile
 
-@docs encodeTree, encodeCode, encodeFile
 
-#Helper
+# Decoder
+
+@docs decodeCode, decodeTree, decodeFile
+
+
+# Tree Helper-Functions
 
 @docs createCharCodeDictFromTree, getCharFromTreeByCode, generateTree
 
@@ -43,9 +51,15 @@ import Maybe.Extra
 
 {-| A Huffman-Coding-Tree has three possible states:
 
-1.  Empty -> there is no tree.
-2.  Node -> A Node has always two further Trees
-3.  Leaf -> A Leaf has always an Element
+1.  Empty -> This tree is empty.
+2.  Node -> A Node has always two further Trees.
+3.  Leaf -> A Leaf describe one of the endpoints of a Tree.
+
+Example:
+
+    exampleTree : Tree
+    exampleTree =
+        Node (Leaf Element 'h' 1 (Leaf Element 'i' 1))
 
 -}
 type Tree
@@ -54,20 +68,28 @@ type Tree
     | Leaf Element
 
 
-{-| Describe which tree in a Node has to chose in a tree
+{-| An Element contains the information which char is encoded and how often this is used in the text.
+-}
+type alias Element =
+    { char : Char
+    , numberOf : Int
+    }
+
+
+{-| Describe which tree in a Node has to chose.
 -}
 type Direction
     = Left
     | Right
 
 
-{-| A list of Direction and the code for a char
+{-| A list of Direction. It describe the route through a tree until a Leaf.
 -}
 type alias Code =
     List Direction
 
 
-{-| The HuffmanFile is a combination of the text in Codes and the Huffman-Coding-Tree which was used to create the codes
+{-| The HuffmanFile is a combination of the text in Codes and the Huffman-Coding-Tree which was used to create the codes.
 -}
 type alias HuffmanFile =
     { text : List Code
@@ -75,15 +97,12 @@ type alias HuffmanFile =
     }
 
 
-type alias Element =
-    { char : Char
-    , numberOf : Int
-    }
+{-| Transform a list of Codes by means of a Huffman-Coding-Tree into a String.
 
-
-{-| Transform a list of Codes with a Huffman-Coding-Tree into a String.
-
-    decompress (Node (Node (Leaf Element 'N' 1) (Leaf Element 'i' 1)) (Node (Leaf Element 'c' 1) (Leaf Element 'e' 1))) [ [ Left, Left ], [ Left, Right ], [ Right, Left ], [ Right, Right ] ] == "Nice"
+    decompress
+        (Node (Node (Leaf Element 'n' 1) (Leaf Element 'i' 1)) (Node (Leaf Element 'c' 1) (Leaf Element 'e' 1)))
+        [ [ Left, Left ], [ Left, Right ], [ Right, Left ], [ Right, Right ] ]
+        == "nice"
 
 -}
 decompress : Tree -> List Code -> String
@@ -97,11 +116,21 @@ decompress tree textInCodes =
 {-| Returns a Maybe Char by using the Direction in Codes.
 It returns a `Just Char` if the route of the Directions ends in a leaf otherwise it will return `Nothing`.
 
-    getCharFromTreeByCode ( Node (Node (Leaf (Element 'G' 1)) (Leaf (Element 'd' 1)) (Leaf (Element 'o' 2)) ) [ Right ]
+    getCharFromTreeByCode
+        ( Node (Node (Leaf (Element 'd' 1)) (Leaf (Element 'd' 1)) (Leaf (Element 'o' 2)) )
+        [ Right ]
         == Just 'o'
-    getCharFromTreeByCode ( Node (Node (Leaf (Element 'E' 1)) (Leaf (Element 'i' 1)) Node (Leaf (Element 'n' 1)) (Leaf (Element 's' 1)) ) ) [Left]
+
+
+    getCharFromTreeByCode
+        ( Node (Node (Leaf (Element 'e' 1)) (Leaf (Element 'i' 1)) Node (Leaf (Element 'n' 1)) (Leaf (Element 's' 1)) ) )
+        [Left]
         == Nothing
-    getCharFromTreeByCode ( Node (Leaf (Element 'H' 1)) (Leaf (Element 'i' 1)) ) [Right, Left, Right, Right]
+
+
+    getCharFromTreeByCode
+        ( Node (Leaf (Element 'h' 1)) (Leaf (Element 'i' 1)) )
+        [Right, Left, Right, Right]
         == Nothing
 
 -}
@@ -130,11 +159,11 @@ getCharFromTreeByCode tree code =
 
 
 {-| Returns a Tuple of a Huffman-Coding-Tree and List of Codes.
-Each Code stands for a Char in the String. Each Code is a route description for a Char in the Tree.
+Each Code describe a Char in the String. Each Code is a route description for a Char in the Tree.
 
-    compress "Hi"
-        == ( Node (Leaf Element 'H' 1) (Leaf Element 'i' 1)
-           , [ [ Right ], [ Left ] ]
+    compress "hi"
+        == ( Node (Leaf Element 'h' 1) (Leaf Element 'i' 1)
+           , [ [ Left ], [ Right ] ]
            )
 
 -}
@@ -144,26 +173,18 @@ compress text =
         tree =
             generateTree text
 
-        dictFromTree =
-            createCharCodeDictFromTree tree
-
         codes =
-            text
-                |> String.toList
-                |> List.map
-                    (\char ->
-                        Dict.get char dictFromTree |> Maybe.withDefault []
-                    )
+            createListOfCodes text tree
     in
     ( tree, codes )
 
 
-{-| Generates a Huffman-Coding-Tree for a String
+{-| Generates a Huffman-Coding-Tree for a String.
 
-    generateTree "Done"
+    generateTree "done"
         == Node
             (Node
-                (Leaf Element 'D' 1)
+                (Leaf Element 'd' 1)
                 (Leaf Element 'o' 1)
             )
             (Node
@@ -252,14 +273,14 @@ calculateCount tree =
             calculateCount first + calculateCount second
 
 
-{-| Return all Chars and their Code in a Dict for a Huffman-Coding-Tree
+{-| Return all Chars and their Code in a Dict for a Huffman-Coding-Tree.
 
-    createCharCodeDictFromTree (Node (Node (Leaf Element 'T' 1) (Leaf Element 'e' 1)) (Node (Leaf Element 's' 1) (Leaf Element 't' 1)))
+    createCharCodeDictFromTree (Node (Node (Leaf Element 'b' 1) (Leaf Element 'l' 1)) (Node (Leaf Element 'u' 1) (Leaf Element 'e' 1)))
         == Dict.fromList
-            [ ( T, [ Left, Left ] )
-            , ( e, [ Left, Right ] )
-            , ( s, [ Right, Left ] )
-            , ( t, [ Right, Right ] )
+            [ ( 'b', [ Left, Left ] )
+            , ( 'l', [ Left, Right ] )
+            , ( 'u', [ Right, Left ] )
+            , ( 'e', [ Right, Right ] )
             ]
 
 -}
@@ -289,11 +310,11 @@ listCodeOfCharFromTree tree currentCode listOfCodes =
 --------------------- DECODER ---------------------
 
 
-{-| Decode a byte into a Node or a Leaf
+{-| Decode a byte into a Node or a Leaf.
 
     Bytes.Decode.decode decodeTree
-    |`00`| |`00`| |`01`| |`01` | |`5C` | |`00` `00` `00` `02`| |`01`| |`01` | |`48` | |`00` `00` `00` `01`| |`00`| |`01`| |`01` | |`61` | |`00` `00` `00` `01`| |`01`| |`01` | |`6F` | |`00` `00` `00` `01`|
-        == (Node (Node (Leaf Element 'l' 2) (Leaf Element 'H' 1)) (Node (Leaf Element 'a' 1) (Leaf Element 'o' 1)))
+        |`00`| |`00`| |`00`| |`01`| |`01`| |`65`| |`00` `01`| |`01`| |`01`| |`6F`| |`00` `01`| |`01`| |`01`| |`68`| |`00` `01`| |`01`| |`01`| |`6C`| |`00` `02`|
+        == (Node ((Node (Node (Leaf Element 'e' 1) (Leaf Element 'o' 1))(Leaf Element 'h' 1)) (Leaf Element 'l' 2)))
 
 -}
 decodeTree : Decoder Tree
@@ -343,10 +364,11 @@ changeOneCharStringIntoChar string =
         String.toList string |> List.head
 
 
-{-| Decode two bytes into a Code
+{-| Decode two bytes into a Code.
 
     Bytes.Decode.decode decodeCode `5C` `80`
         == [ Right, Right, Left, Left, Right, Left ]
+
 
     Bytes.Decode.decode decodeCode `20` `00` `24` `00` `28` `00` `2C` `00`
         == [Left, Left] [Left, Right] [Right, Left] [Right, Right]
@@ -422,16 +444,16 @@ calculateCodeFromContentValueHelp content rep code =
         calculateCodeFromContentValueHelp content (rep - 1) (Left :: code)
 
 
-{-| Decodes a sequence of bytes into a HuffmanFile
+{-| Decodes a sequence of bytes into a HuffmanFile.
 
     Bytes.Decode.decode
         decodeFile
-        | `00` `00` `00` `08` | `20` `00` - `34` `00` - `2C` `00` - `36` `00` - `2C` `00` - `38` `00` - `20` `00` - `3A` `00` | (`00` (`00` (`01` `01` `73` `00` `00` `00` `02`) (`00` (`01` `01` `75` `00` `00` `00` `01`) (`01` `01` `70` `00` `00` `00` `01`) (`00` (`00` (`01` `01` `69` `00` `00` `00` `01`) (`01` `01` `65` `00` `00` `00` `01`)) (`01` `01` `72` `00` `00` `00` `02`)) |
-        |   Anzahl der Chars  |                                      Die Codes in Bytes                                       |                                                                                                                        Der Tree in Bytes                                                                                                                      |
+        | `00` `00` `00` `04` | `20` `00` - `28` `00` -  `24` `00` - `2C` `00` | `00` `00` `01` `01` `62` `00` `01` `01` `01` `6C` `00` `01` `00` `01` `01` `75` `00` `01` `01` `01` `65` `00` `01` |
+        |   Number Of Chars   |                 Codes in Bytes                 |                                                   Tree in Bytes                                                    |
 
     == HuffmanFile
-        [ [ Left, Left ], [ Left, Right, Left ], [ Right, Right ], [ Left, Right, Right ], [ Right, Right ], [ Right, Left, Left ], [ Left, Left ], [ Right, Left, Right ] ]
-        (Node (Node (Leaf Element 's' 2) (Node (Leaf Element 'u' 1) (Leaf Element 'p' 1))) (Node (Node (Leaf Element 'i' 1) (Leaf Element 'e' 1)) (Leaf Element 'r' 2)))
+        [ [Left, Left], [Left, Right], [Right, Left], [Right, Right] ]
+        (Node (Node (Leaf Element 'b' 1) (Leaf Element 'l' 1)) (Node (Leaf Element 'u' 1) (Leaf Element 'e' 1)))
 
 -}
 decodeFile : Decoder HuffmanFile
@@ -460,11 +482,12 @@ current decoder ( step, list ) =
 --------------------- ENCODER ---------------------
 
 
-{-| Encode code into 2 bytes
+{-| Create a Encoder to encode a Code. Each Code will use 2 bytes after encoding.
 
     Bytes.Encoder.encode encodeCode [Left]
         == Hex : `10` `00`
         || Dual: `0001` `0000` `0000` `0000`
+
 
     Bytes.Encoder.encode encodeCode [Left, Right, Right, Left, Left, Right, Right]
         == Hex : `76` `60`
@@ -500,13 +523,21 @@ calculateCodeValueContent code =
         |> Bitwise.shiftLeftBy (12 - List.length code)
 
 
-{-| Encode a Tree
+{-| Create a Maybe-Encoder of a tree.
+If the Tree does not include any Empty-state the result will be Just Encoder Else Nothing.
 
-    Bytes.Encode.encode encodeTree (Node (Node (Leaf Element 'T' 1) (Leaf Element 'e' 1)) (Node (Leaf Element 's' 1) (Leaf Element 't' 1)))
-        == Hex : |`00`| |`00`| |`01`| |`01` | |`54` | |`00` `00` `00` `01`| |`01`| |`01` | |`65` | |`00` `00` `00` `01`| |`00`| |`01`| |`01` | |`73` | |`00` `00` `00` `01`| |`01`| |`01` | |`74` | |`00` `00` `00` `01`|
-                 |Node| |Node| |Leaf| |Width| |ASCII| |       Anzahl      | |Leaf| |Width| |ASCII| |       Anzahl      | |Node| |Leaf| |Width| |ASCII| |       Anzahl      | |Leaf| |Width| |ASCII| |       Anzahl      |
+    Bytes.Encode.encode encodeTree (Node Empty (Node (Leaf Element 'e' 4) (Leaf Element 'h' 4)))
+        == Nothing
 
-    Returns Nothing if the tree contains any Empty
+
+    Bytes.Encode.encode encodeTree (Node (Leaf Element '1' 1) (Leaf Element '€' 1))
+        == Hex : |`00`| |`01`| |`01` | |`31` | |`00` `01`| |`01`| |`03` | |`E2` `82` `AC`| |`00` `01`|
+                 |Node| |Leaf| |Width| |UTF-8| |Number of| |Leaf| |Width| |     UTF-8    | |Number of|
+
+
+    Bytes.Encode.encode encodeTree (Node (Node (Leaf Element 'b' 1) (Leaf Element 'l' 1)) (Node (Leaf Element 'u' 1) (Leaf Element 'e' 1)))
+        == Hex : |`00`| |`00`| |`01`| |`01` | |`62` | |`00` `01`| |`01`| |`01` | |`6C` | |`00` `01`| |`00`| |`01`| |`01` | |`75` | |`00` `01`| |`01`| |`01` | |`6A` | |`00` `01`|
+                 |Node| |Node| |Leaf| |Width| |UTF-8| |Number of| |Leaf| |Width| |UTF-8| |Number of| |Node| |Leaf| |Width| |UTF-8| |Number of| |Leaf| |Width| |UTF-8| |Number of|
 
 -}
 encodeTree : Tree -> Maybe Encoder
@@ -535,18 +566,23 @@ encodeElement element =
         ]
 
 
-{-| If the tree in the HuffmanFile is able to encode correctly it encodes a HuffmanFile
+{-| If the Tree in the HuffmanFile is able to encode correctly it returns a Just Encoder Else Nothing.
 
     Bytes.Encode.encode encodeFile
         HuffmanFile
-        [ [ Left, Left ], [ Left, Right ], [ Right, Left ], [ Right, Right ], [ Left, Left ], [ Left, Right ], [ Right, Left ], [ Right, Right ] ]
-        (Node (Node (Leaf Element 'T' 2) (Leaf Element 'e' 2)) (Node (Leaf Element 's' 2) (Leaf Element 't' 2)))
+            [ [ Left, Left ], [ Left, Right ], [ Right, Left ], [ Right, Right ], [ Left, Left ], [ Left, Right ], [ Right, Left ], [ Right, Right ] ]
+            (Node (Node (Leaf Element 'b' 2) (Leaf Element 'l' 2)) (Node (Leaf Element 'u' 2) (Leaf Element 'e' 2)))
 
-        == |`00` `00` `00` `08| [ siehe encodeCode ] [ siehe encodeTree ]
-           | Anzahl der Codes | [   List of Codes  ] [       Tree       ]
+            == |`00` `00` `00` `08| [ look up @encodeCode ] [ look up @encodeTree ]
+               |  Number of Codes | [    List of Codes    ] [         Tree        ]
 
-    Bytes.Encode.encode encode File HuffmanFile [ [ Left, Right, Left ], [Right, Right], [ Left, Left ] ] (Node (Leaf Element 'a' 1) (Empty))
-        == Nothing
+
+    Bytes.Encode.encode encodeFile
+        HuffmanFile
+            [ [ Left, Right, Left ], [Right, Right], [ Left, Left ] ]
+            (Node (Leaf Element 'a' 1) (Empty))
+
+            == Nothing
 
 -}
 encodeFile : HuffmanFile -> Maybe Encoder
@@ -563,3 +599,17 @@ encodeText : Int -> List Code -> Encoder
 encodeText length text =
     Encode.sequence
         (Encode.unsignedInt32 Bytes.BE length :: List.map encodeCode text)
+
+
+createListOfCodes : String -> Tree -> List Code
+createListOfCodes text tree =
+    let
+        dictFromTree =
+            createCharCodeDictFromTree tree
+    in
+    text
+        |> String.toList
+        |> List.map
+            (\char ->
+                Dict.get char dictFromTree |> Maybe.withDefault []
+            )
