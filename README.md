@@ -11,20 +11,20 @@ The Code will be created by the directions --------------------
   you had to follow to get to the char                         |
             |                                                  v
             |                                                Right -->
-            |      ------------------------------Node---------------------------
-            |     |                                       /                     |
-            |     |                                      /                      |
-            v     |                                     /                       |
-        <- Left   v                     will get the code:                      v
-       ---------Node---------           Right, Left, Left --->       ---------Node---------
-      |                      |              |           \           |                      |
-      |                      |              |            \          |                      |
-      v                      v              |             \         v                      v
-Leaf 's' 2            -----Node-----        |                -----Node-----          Leaf 'r' 2
-                     |              |       |               |              |
-                     |              |       |               |              |
-                     v              v       |               v              v
-              Leaf ('u') 1    Leaf 'p' 1     -->      Leaf 'i' 1     Leaf 'e' (1)
+            |      ==============================Node===========================
+            |    ||                                        /                    ||
+            |    ||                                       /                     ||
+            v    ||                                      /                      ||
+        <- Left  vv                    This will get the code:                  vv
+       =========Node=========           Right, Left, Left --->        =========Node=========
+     ||                      ||                 |        \          ||                      ||
+     ||                      ||                 |         \         ||                      ||
+     vv                      vv                 |          \        vv                      vv
+Leaf 's' 2             =====Node=====           |             =====Node=====           Leaf 'r' 2
+                     ||              ||         |            ||             ||
+                     ||              ||         |            ||             ||
+                     vv              vv         |            vv             vv
+              Leaf ('u') 1      Leaf 'p' 1       -----> Leaf 'i' 1     Leaf 'e' (1)
                      ^                                                         ^
                      |                                                         |
                      |                                                         |
@@ -37,18 +37,18 @@ Leaf 's' 2            -----Node-----        |                -----Node-----     
 ### One possible String is: surprise
 
 ```
-                        -----------------------------
-                        | Char |        Code        |
-                        |------|--------------------|
-                        |  s   |     Left, Left     |
-                        |  u   | Left, Right, Left  |
-                        |  r   |    Right, Right    |
-                        |  p   | Left, Right, Right |
-                        |  r   |    Right, Right    |
-                        |  i   | Right, Left, Left  |
-                        |  s   |     Left, Left     |
-                        |  e   | Right, Left, Right |
-                        -----------------------------
+                                    -----------------------------
+                                    | Char |        Code        |
+                                    |------|--------------------|
+                                    |  s   |     Left, Left     |
+                                    |  u   | Left, Right, Left  |
+                                    |  r   |    Right, Right    |
+                                    |  p   | Left, Right, Right |
+                                    |  r   |    Right, Right    |
+                                    |  i   | Right, Left, Left  |
+                                    |  s   |     Left, Left     |
+                                    |  e   | Right, Left, Right |
+                                    -----------------------------
 ```
 
 ## Functions:
